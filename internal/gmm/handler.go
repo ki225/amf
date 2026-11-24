@@ -851,42 +851,46 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 		}
 	}
 
-	param := Nnrf_NFDiscovery.SearchNFInstancesRequest{
-		Supi: &ue.Supi,
-	}
-	if amfSelf.Locality != "" {
-		param.PreferredLocality = &amfSelf.Locality
-	}
+	// A registration resumed on this AMF's stored context keeps its policy association.
+	// Creating another one would overwrite the only reference to the old policy.
+	if ue.AmPolicyAssociation == nil || ue.ServingAmfChanged {
+		param := Nnrf_NFDiscovery.SearchNFInstancesRequest{
+			Supi: &ue.Supi,
+		}
+		if amfSelf.Locality != "" {
+			param.PreferredLocality = &amfSelf.Locality
+		}
 
-	// TODO: (step 15) Should use PCF ID to select PCF
-	// Retrieve PCF ID from old AMF
-	// if ue.PcfId != "" {
+		// TODO: (step 15) Should use PCF ID to select PCF
+		// Retrieve PCF ID from old AMF
+		// if ue.PcfId != "" {
 
-	// }
-	for {
-		resp, err := consumer.GetConsumer().SendSearchNFInstances(
-			amfSelf.NrfUri, models.Nrf_NFMgmt_NFType_PCF, models.Nrf_NFMgmt_NFType_AMF, &param)
-		if err != nil {
-			ue.GmmLog.Error("AMF can not select an PCF by NRF")
-		} else {
-			pcf, pcfUri := util.SelectNFService(resp.NfInstances, models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL)
-			if pcf != nil {
-				ue.PcfId = pcf.NfInstanceId
-			}
-			if ue.PcfUri = pcfUri; ue.PcfUri == "" {
+		// }
+		for {
+			resp, err := consumer.GetConsumer().SendSearchNFInstances(
+				amfSelf.NrfUri, models.Nrf_NFMgmt_NFType_PCF, models.Nrf_NFMgmt_NFType_AMF, &param)
+			if err != nil {
 				ue.GmmLog.Error("AMF can not select an PCF by NRF")
 			} else {
-				break
+				pcf, pcfUri := util.SelectNFService(resp.NfInstances, models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL)
+				if pcf != nil {
+					ue.PcfId = pcf.NfInstanceId
+				}
+				if ue.PcfUri = pcfUri; ue.PcfUri == "" {
+					ue.GmmLog.Error("AMF can not select an PCF by NRF")
+				} else {
+					break
+				}
 			}
+			time.Sleep(500 * time.Millisecond) // sleep a while when search NF Instance fail
 		}
-		time.Sleep(500 * time.Millisecond) // sleep a while when search NF Instance fail
-	}
 
-	problemDetails, err := consumer.GetConsumer().AMPolicyControlCreate(ue, anType)
-	if problemDetails != nil {
-		ue.GmmLog.Errorf("AM Policy Control Create Failed Problem[%+v]", problemDetails)
-	} else if err != nil {
-		ue.GmmLog.Errorf("AM Policy Control Create Error[%+v]", err)
+		problemDetails, err := consumer.GetConsumer().AMPolicyControlCreate(ue, anType)
+		if problemDetails != nil {
+			ue.GmmLog.Errorf("AM Policy Control Create Failed Problem[%+v]", problemDetails)
+		} else if err != nil {
+			ue.GmmLog.Errorf("AM Policy Control Create Error[%+v]", err)
+		}
 	}
 
 	// Service Area Restriction are applicable only to 3GPP access

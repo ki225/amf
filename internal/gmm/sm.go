@@ -188,6 +188,15 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleIdentityResponse(amfUe, msg); err != nil {
 				logger.GmmLog.Errorln(err)
 			} else {
+				// An unknown GUTI can resolve to a subscriber with an existing context.
+				// As for a SUCI in Initial UE Message, authenticate on this provisional
+				// context first; ContextSetup then reconciles by the authenticated SUPI.
+				if amfUe.RegistrationType5GS == ie.RegType_InitialReg &&
+					msg.MobileId.TypeOfId == ie.IdType_5GS_SUCI && amfUe.AuthenticatingFor == nil {
+					if storedUe, ok := context.GetSelf().AmfUeFindBySuci(amfUe.GetSuci()); ok && storedUe != amfUe {
+						amfUe.AuthenticatingFor = storedUe
+					}
+				}
 				// update identity type used for reauthentication
 				amfUe.IdentityTypeUsedForRegistration = msg.MobileId.TypeOfId
 

@@ -72,6 +72,8 @@ type AmfUe struct {
 	// AuthenticatingFor is the UE context that a REGISTRATION REQUEST handled on this context named but
 	// failed the integrity check of (TS 24.501 4.4.4.3). This context only authenticates the UE; the
 	// registration then continues on the UE context stored for the authenticated subscriber.
+	// It also records a same-SUCI candidate discovered by an Initial Registration Identity Response;
+	// that candidate alone never authorizes changing the stored context.
 	AuthenticatingFor *AmfUe
 	/* Used for AMF relocation */
 	TargetAmfProfile *models.Nrf_NFDisc_NFProfile
